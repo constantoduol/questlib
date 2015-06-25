@@ -81,7 +81,6 @@ public class ServerLink extends HttpServlet {
                    String privState = serviceList.get(2).toString();
                    Service svc = (Service)serviceList.get(3);
                    svc.runOnPreExecute(server, worker);
-                   io.out("pre execute ran");
                    if(privState.equals("yes")){
                        return true;
                    }

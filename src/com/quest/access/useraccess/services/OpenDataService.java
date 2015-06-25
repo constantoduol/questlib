@@ -52,7 +52,7 @@ public class OpenDataService implements Serviceable {
         Database db = new Database(USER_DATA,worker.getSession());
         JSONObject request = worker.getRequestData();
         String email = request.optString("username");
-        JSONObject data = db.query("SELECT BUSINESS_ID,BUSINESS_NAME,BUSINESS_TYPE,TRACK_STOCK from BUSINESS_USERS, "
+        JSONObject data = db.query("SELECT BUSINESS_ID,BUSINESS_NAME,BUSINESS_TYPE from BUSINESS_USERS, "
                 + "BUSINESS_DATA where BUSINESS_USERS.BUSINESS_ID = BUSINESS_DATA.ID AND BUSINESS_USERS.USER_NAME = ?",email);
         JSONObject response = new JSONObject();
         response.put("business_ids", data.optJSONArray("BUSINESS_ID"));

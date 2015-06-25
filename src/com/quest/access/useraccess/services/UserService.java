@@ -171,7 +171,15 @@ import org.json.JSONObject;
                 "USER_NAME TEXT",
                 "BUSINESS_ID TEXT",
                 "CREATED DATETIME"
-            })
+            }),
+      @Model(
+                database = "user_server", table = "ACTIVATION_DATA",
+                columns = {
+                        "ACTIVATION_KEY VARCHAR(25)",
+                        "BUSINESS_NAME TEXT",
+                        "CREATED DATETIME"
+                }),
+        
 }
 )
 

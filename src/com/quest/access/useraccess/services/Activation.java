@@ -82,7 +82,7 @@ public class Activation {
 
     public ClientWorker validateKey(Server serv, ClientWorker worker){
         try {
-            Database db = new Database("pos_data", worker.getSession());
+            Database db = new Database("user_server", worker.getSession());
             JSONObject requestData = worker.getRequestData();
             String name = requestData.optString("business_name");
             String key = requestData.optString("activation_key");
