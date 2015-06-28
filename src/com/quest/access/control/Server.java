@@ -1312,10 +1312,7 @@ public class Server {
                     }
                     // if this fails check to see if there is a service that has shared this method with the currently invoked service
                 } catch (Exception e) {
-                    //this exception means that this method does not exist in this service
-                    // therefore try to see if another service has shared this method
-                    if (Server.this.debugmode) e.printStackTrace();
-
+                    if (Server.this.debugmode) e.getCause().printStackTrace();
                 }
             }
             else {
