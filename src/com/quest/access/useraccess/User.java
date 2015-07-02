@@ -2,6 +2,7 @@ package com.quest.access.useraccess;
 
 import com.quest.access.common.Logger;
 import com.quest.access.common.UniqueRandom;
+import com.quest.access.common.io;
 import com.quest.access.common.mysql.Database;
 import com.quest.access.crypto.Security;
 import com.quest.access.useraccess.verification.Action;
@@ -64,8 +65,8 @@ public class User {
      * @param server the server in which this user is expected to operate
      * @param priv the permanent privileges that are accessible to this user.
      */
-    public User(String userName, String pass, String host, Database db, Action action, String... privs) throws UserExistsException, NonExistentUserException {
-        this(userName, pass, host, db, null, action, privs);
+    public User(String userName, String pass, String host, Database db, Action action, String userInterface, String... privs) throws UserExistsException, NonExistentUserException {
+        this(userName, pass, host, db, null, action, userInterface, privs);
     }
 
     /**
@@ -81,20 +82,27 @@ public class User {
      * @param priv the permanent privileges that are accessible to this user.
      * @throws UserExistsException
      */
-    public User(String userName, String pass, String host, Database db, String group, Action action, String... privs) throws UserExistsException {
+    public User(String userName, String pass, String host, Database db, String group, Action action, String userInterface, String... privs) throws UserExistsException {
         this.userName = userName;
         this.database = db;
         this.priv = new JSONArray();
-        createUser(userName, pass, host, db, group, action);
+        if (userInterface.equals("touch")) {
+            createTouchUser(userName, pass, host, db, group, action);
+        } else {
+            createUser(userName, pass, host, db, group, action);
+        }
         grantPrivileges(privs);
     }
-    
-    
-    public User(String userName, String pass, String host, Database db, String group, Action action) throws UserExistsException {
+
+    public User(String userName, String pass, String host, Database db, String group, String userInterface, Action action) throws UserExistsException {
         this.userName = userName;
         this.database = db;
         this.priv = new JSONArray();
-        createUser(userName, pass, host, db, group, action);
+        if (userInterface.equals("touch")) {
+            createTouchUser(userName, pass, host, db, group, action);
+        } else {
+            createUser(userName, pass, host, db, group, action);
+        }
     }
 
     /**
@@ -110,12 +118,12 @@ public class User {
      * @param service the services this user is being assigned access to
      * @throws UserExistsException
      */
-    public User(String userName, String pass, String host, Database db, String group, Action action, Service... service) throws UserExistsException {
+    public User(String userName, String pass, String host, Database db, String group, Action action, String userInterface, Service... service) throws UserExistsException {
         String[] privs = new String[service.length];
         for (int x = 0; x < service.length; x++) {
             privs[x] = service[x].getServicePrivilege();
         }
-        User user = new User(userName, pass, host, db, group, action, privs);
+        User user = new User(userName, pass, host, db, group, action, userInterface, privs);
     }
 
     /**
@@ -130,8 +138,8 @@ public class User {
      * @param service the services accessible to this user
      * @throws UserExistsException
      */
-    public User(String userName, String pass, String host, Database db, UserAction action, Service... service) throws UserExistsException {
-        this(userName, pass, host, db, null, action, service);
+    public User(String userName, String pass, String host, Database db, UserAction action, String userInterface, Service... service) throws UserExistsException {
+        this(userName, pass, host, db, null, action, userInterface, service);
     }
 
     /**
@@ -184,7 +192,7 @@ public class User {
      */
     public void setPassWord(String newPass) {
         try {
-            byte[] bytes = Security.makePasswordDigest(this.userName, newPass.toCharArray());
+            byte[] bytes = Security.makePasswordDigest("PINS_ARE_WEIRD", newPass.toCharArray());
             String passw = Security.toBase64(bytes);
             this.database.query("UPDATE USERS SET PASS_WORD='" + passw + "' WHERE USER_NAME=?", this.userName);
         } catch (Exception e) {
@@ -249,7 +257,7 @@ public class User {
 
     public static boolean changePassword(Database db, String userName, String oldPass, String newPass) {
         try {
-            String old_pass = Security.toBase64(Security.makePasswordDigest(userName, oldPass.toCharArray()));
+            String old_pass = Security.toBase64(Security.makePasswordDigest("PINS_ARE_WEIRD", oldPass.toCharArray()));
             String pass_stored = db.getValue("PASS_WORD", "USERS", "USER_NAME", userName);
             if (old_pass.equals(pass_stored)) {
                 byte[] bytes = Security.makePasswordDigest(userName, newPass.toCharArray());
@@ -349,6 +357,16 @@ public class User {
         return new User(userName, db, data);
     }
 
+    public static User getExistingUserUsingPin(String pinHash, Database db) throws NonExistentUserException {
+        JSONObject data = db.query("SELECT * FROM USERS WHERE PASS_WORD = ?", pinHash);
+        if (data.optJSONArray("USER_NAME").length() == 0) {
+            throw new NonExistentUserException();
+        }
+        String userName = data.optJSONArray("USER_NAME").optString(0);
+        // make sure the user exists 
+        return new User(userName, db, data);
+    }
+
     /**
      * this method assigns the specified privileges to the specified user
      *
@@ -410,8 +428,44 @@ public class User {
     }
 
     /*----------------private implementation---------------------*/
+    private void createTouchUser(String userName, String pass, String host, Database db, String group, Action action) {
+        if (group == null) {
+            group = "unassigned";
+        }
+        UniqueRandom ur = new UniqueRandom(20);
+        String nextRandom = ur.nextRandom();
+        // check to ensure the user name is always unique
+        try {
+            String passw = Security.toBase64(Security.makePasswordDigest("PINS_ARE_WEIRD", pass.toCharArray()));
+            if (db.ifValueExists(passw, "USERS", "PASS_WORD")) {
+                throw new UserExistsException();
+            }
+            Long time = System.currentTimeMillis();
+            db.query("INSERT INTO USERS VALUES(?,?,?,'" + passw + "',?,NOW(),0,0,?,?,NOW(),?,?)", nextRandom, userName, userName, host, time.toString(), "0", group, action.getActionID());
+            setUserProperty("USER_ID", nextRandom);
+            setUserProperty("USER_NAME", userName);
+            setUserProperty("REAL_NAME", userName);
+            setUserProperty("PASS_WORD", passw);
+            setUserProperty("HOST", host);
+            setUserProperty("LAST_LOGIN", "");
+            setUserProperty("IS_LOGGED_IN", "0");
+            setUserProperty("IS_DISABLED", "0");
+            setUserProperty("IS_PASSWORD_EXPIRED", ((Long) System.currentTimeMillis()).toString());
+            setUserProperty("CHANGE_PASSWORD", "0");
+            setUserProperty("GROUPS", group);
+            setUserProperty("ACTION_ID", action.getActionID());
+            action.saveAction();
+            Logger.toConsole("new user created", this.getClass());
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private void createUser(String userName, String pass, String host, Database db, String group, Action action) throws UserExistsException {
-        if (group == null) group = "unassigned";
+        if (group == null) {
+            group = "unassigned";
+        }
         UniqueRandom ur = new UniqueRandom(20);
         String nextRandom = ur.nextRandom();
         // check to ensure the user name is always unique
@@ -419,7 +473,7 @@ public class User {
             if (db.ifValueExists(userName, "USERS", "USER_NAME")) {
                 throw new UserExistsException();
             }
-            byte[] bytes = Security.makePasswordDigest(userName, pass.toCharArray());
+            byte[] bytes = Security.makePasswordDigest("PINS_ARE_WEIRD", pass.toCharArray());
             String passw = Security.toBase64(bytes);
             Long time = System.currentTimeMillis();
             db.query("INSERT INTO USERS VALUES(?,?,?,'" + passw + "',?,NOW(),0,0,?,?,NOW(),?,?)", nextRandom, userName, userName, host, time.toString(), "0", group, action.getActionID());

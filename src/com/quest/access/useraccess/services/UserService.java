@@ -1,5 +1,6 @@
 package com.quest.access.useraccess.services;
 
+import com.quest.access.common.UniqueRandom;
 import com.quest.access.useraccess.services.annotations.Endpoint;
 import com.quest.access.useraccess.services.annotations.WebService;
 import com.quest.access.common.mysql.Database;
@@ -151,34 +152,8 @@ import org.json.JSONObject;
                 "ACTION_TIME DATETIME",
                 "ACTION_DESCRIPTION VARCHAR(256)"
             }
-    ),
-    @Model(
-            database = "user_server", table = "BUSINESS_DATA",
-            columns = {"ID VARCHAR(20) PRIMARY KEY",
-                "BUSINESS_NAME TEXT",
-                "COUNTRY TEXT",
-                "CITY TEXT",
-                "POSTAL_ADDRESS TEXT",
-                "PHONE_NUMBER TEXT",
-                "COMPANY_WEBSITE TEXT",
-                "BUSINESS_TYPE VARCHAR(10)",//schema
-                "BUSINESS_OWNER TEXT",
-                "CREATED DATETIME"
-            }),
-    @Model(
-            database = "user_server", table = "BUSINESS_USERS",
-            columns = {"ID VARCHAR(20) PRIMARY KEY",
-                "USER_NAME TEXT",
-                "BUSINESS_ID TEXT",
-                "CREATED DATETIME"
-            }),
-      @Model(
-                database = "user_server", table = "ACTIVATION_DATA",
-                columns = {
-                        "ACTIVATION_KEY VARCHAR(25)",
-                        "BUSINESS_NAME TEXT",
-                        "CREATED DATETIME"
-                }),
+    )
+
         
 }
 )
@@ -199,6 +174,7 @@ public class UserService implements Serviceable {
             JSONArray priv = details.optJSONArray("privs");
             String group = details.optString("group");
             String password = details.optString("password");
+            String userInterface = details.optString("user_interface");
             password = password.isEmpty() ? serv.getDefaultPassWord() : password;
             String[] privs = new String[priv.length()];
 
@@ -207,8 +183,7 @@ public class UserService implements Serviceable {
             }
 
             try {
-
-                user = new User(uName, password, host, db, group, uAction, privs);
+                user = new User(uName, password, host, db, group, uAction,userInterface, privs);
             } catch (UserExistsException ex) {
                 worker.setReason(ex.getMessage());
                 worker.setResponseData(ex);
@@ -354,6 +329,9 @@ public class UserService implements Serviceable {
         Database db = new Database(USER_DATA, worker.getSession());
         JSONObject requestData = worker.getRequestData();
         String uName = requestData.optString("name");
+        String interFace = requestData.optString("user_interface");
+        String pin = new UniqueRandom(5).nextRandom();
+        String pass = interFace.equals("touch") ? pin : serv.getDefaultPassWord();
         try {
             HttpSession ses = worker.getSession();
             String name = (String) ses.getAttribute("username");
@@ -364,8 +342,9 @@ public class UserService implements Serviceable {
                 return;
             }
             User user = User.getExistingUser(uName, db);
-            user.setPassWord(serv.getDefaultPassWord());
+            user.setPassWord(pass);
             worker.setResponseData(Message.SUCCESS);
+            worker.setReason(pin);
             serv.messageToClient(worker);
             UserAction action = new UserAction(worker, "RESET_PASS " + uName + "");
             action.saveAction();

@@ -30,6 +30,8 @@ import java.net.InetAddress;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -452,16 +454,19 @@ public class Server {
     public final void createRootUser(String rootUser,Database db) {
         try {
             String externalServices = config.getInitParameter("external-services");
+            String defaultInterface = config.getInitParameter("default-user-interface");
             initExternalServices(externalServices);
             String initType = this.config.getInitParameter("init-type");
             if (!initType.equals("initial")) return;
             SystemAction action2 = new SystemAction(db, "CREATE_USER " + rootUser);
             this.rootUser = rootUser;
-            new User(rootUser, "pass", "localhost", db, rootUser, action2);
+            new User(rootUser,this.getDefaultPassWord(), "localhost", db, rootUser,defaultInterface, action2);
         } catch (Exception ex) {
             Logger.toConsole(ex, Server.class);
         }
     }
+    
+    
 
   
 
@@ -883,7 +888,7 @@ public class Server {
     private void createSession(ClientWorker worker, User user,Database db) {
         HttpSession ses = worker.getSession();
         JSONObject props = worker.getRequestData();
-        String uName = (String) props.optString("username");
+        String uName = user.getUserProperty("USER_NAME");
         sessions.put(ses.getId(), ses);
         String uHost = (String) props.optString("host");
         String clientIP = (String) props.optString("clientip");
@@ -916,6 +921,14 @@ public class Server {
     public static ConcurrentHashMap<String, HttpSession>  getUserSessions() {
         return sessions;
     }
+    
+    public void doTouchLogin(ClientWorker worker){
+        Database db = worker.getDatabase();
+        JSONObject requestData = worker.getRequestData();
+        String uPin = requestData.optString("password");
+        
+        
+    }
 
     /**
      * this method logs in a user
@@ -928,7 +941,9 @@ public class Server {
             JSONObject requestData = worker.getRequestData();
             String uName = requestData.optString("username");
             String uPass = requestData.optString("password");
-            User user = User.getExistingUser(uName, db);
+            String userInterface = requestData.optString("user_interface");
+            String pinHash = Security.toBase64(Security.makePasswordDigest("PINS_ARE_WEIRD",uPass.toCharArray()));
+            User user = userInterface.equals("desktop") ? User.getExistingUser(uName, db) : User.getExistingUserUsingPin(pinHash, db);
             Integer attemptCount = loginAttempts.get(uName);
             if (this.maxPasswordRetries > 0) {
                 if (attemptCount != null && attemptCount > this.getMaxPasswordAttempts()) {
@@ -1026,6 +1041,8 @@ public class Server {
         }
     }
 
+  
+    
     /**
      * this method authenticates the user given the username, password and
      * client worker
@@ -1034,27 +1051,38 @@ public class Server {
         try {
             //this is a new password
             String userName = user.getUserProperty("USER_NAME");
+            String userInterface = worker.getRequestData().optString("user_interface");
+            io.out("user interface  : "+userInterface);
             String defPass = this.getDefaultPassWord();
-            if (pass.equals(defPass)) {
+            if (pass.equals(defPass) && userInterface.equals("desktop")) {
                 worker.setResponseData("changepass");
                 messageToClient(worker);
                 return false;
             }
-            String pass_user = Security.toBase64(Security.makePasswordDigest(userName, pass.toCharArray()));
+            
+            String pass_user = Security.toBase64(Security.makePasswordDigest("PINS_ARE_WEIRD", pass.toCharArray()));
             String pass_stored = user.getUserProperty("PASS_WORD");
             JSONObject object = new JSONObject();
-            if (pass_user.equals(pass_stored)) {
+            object.put("response", "loginsuccess");
+            object.put("user", userName);
+            object.put("rand", worker.getSession().getId());
+            object.put("host", user.getUserProperty("HOST"));
+            object.put("privileges", user.getUserPrivileges());
+            
+            if (pass_user.equals(pass_stored) && userInterface.equals("desktop")) {
                 //mark the user as logged in
                 user.setUserProperty("IS_LOGGED_IN","1", db);
-                object.put("response", "loginsuccess");
-                object.put("user", userName);
-                object.put("rand", worker.getSession().getId());
-                object.put("host", user.getUserProperty("HOST"));
-                object.put("privileges", user.getUserPrivileges());
                 worker.setResponseData(object);
                 messageToClient(worker);
                 return true;
             }
+            else if(userInterface.equals("touch")){
+                user.setUserProperty("IS_LOGGED_IN","1", db);
+                worker.setResponseData(object);
+                messageToClient(worker);
+                return true;
+            }
+            
             Logger.toConsole("Invalid user credentials : " + userName, Server.class);
             worker.setResponseData("invalidpass");
             messageToClient(worker);

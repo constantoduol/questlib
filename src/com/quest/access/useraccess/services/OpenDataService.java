@@ -14,6 +14,8 @@ import com.quest.access.useraccess.NonExistentUserException;
 import com.quest.access.useraccess.Serviceable;
 import com.quest.access.useraccess.User;
 import com.quest.access.useraccess.services.annotations.Endpoint;
+import com.quest.access.useraccess.services.annotations.Model;
+import com.quest.access.useraccess.services.annotations.Models;
 import com.quest.access.useraccess.services.annotations.WebService;
 import com.quest.access.useraccess.verification.UserAction;
 import com.quest.servlets.ClientWorker;
@@ -23,6 +25,7 @@ import java.net.URLEncoder;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -37,7 +40,44 @@ import org.json.JSONTokener;
  * @author Connie
  */
 
-@WebService (name = "open_data_service", level = 10, privileged = "no")
+@WebService(name = "open_data_service", level = 10, privileged = "no")
+@Models(models = {
+    @Model(
+            database = "user_server", table = "BUSINESS_DATA",
+            columns = {"ID VARCHAR(20) PRIMARY KEY",
+                "BUSINESS_NAME TEXT",
+                "COUNTRY TEXT",
+                "CITY TEXT",
+                "POSTAL_ADDRESS TEXT",
+                "PHONE_NUMBER TEXT",
+                "COMPANY_WEBSITE TEXT",
+                "BUSINESS_TYPE VARCHAR(10)",//schema
+                "BUSINESS_OWNER TEXT",
+                "CREATED DATETIME"
+            }),
+    @Model(
+            database = "user_server", table = "BUSINESS_USERS",
+            columns = {"ID VARCHAR(20) PRIMARY KEY",
+                "USER_NAME TEXT",
+                "BUSINESS_ID TEXT",
+                "CREATED DATETIME"
+            }),
+      @Model(
+                database = "user_server", table = "ACTIVATION_DATA",
+                columns = {
+                        "ACTIVATION_KEY VARCHAR(25)",
+                        "BUSINESS_NAME TEXT",
+                        "CREATED DATETIME"
+                }),
+      @Model(
+            database = "user_server", table = "CONF_DATA",
+            columns = {
+                "CONF_KEY TEXT",
+                "CONF_VALUE TEXT"
+            })
+        
+}
+)
 public class OpenDataService implements Serviceable {
     
     private static final String SERVER_ENDPOINT = "https://quest-uza.appspot.com/server";
@@ -45,6 +85,42 @@ public class OpenDataService implements Serviceable {
     private static final String NEXT_URL = "http://uza.questpico.com";
     
     private static final String USER_DATA = "user_server";
+    
+    
+    @Endpoint(name = "fetch_settings")
+    public void fetchSettings(Server serv, ClientWorker worker) {
+        Database db = new Database(USER_DATA, worker.getSession());
+        JSONObject data = db.query("SELECT * FROM CONF_DATA");
+        worker.setResponseData(data);
+        serv.messageToClient(worker);
+    }
+
+    
+    
+    @Endpoint(name = "save_settings")
+    public void saveSettings(Server serv, ClientWorker worker) {
+        Database db = new Database(USER_DATA, worker.getSession());
+        JSONObject request = worker.getRequestData();
+        request.remove("business_id");
+        Iterator iter = request.keys();
+        while (iter.hasNext()) {
+            String key = iter.next().toString();
+            String value = request.optString(key);
+            //check that the key exists
+            boolean exists = db.ifValueExists(key, "CONF_DATA", "CONF_KEY");
+            if (exists) {
+                db.query()
+                        .update("CONF_DATA")
+                        .set("CONF_VALUE='" + value + "'")
+                        .where("CONF_KEY='" + key + "'")
+                        .execute();
+            } else {
+                db.doInsert("CONF_DATA", new String[]{key, value});
+            }
+        }
+        worker.setResponseData(Message.SUCCESS);
+        serv.messageToClient(worker);
+    }
     
     @Endpoint(name="business_info")
     public JSONObject getBusinessInfo(Server serv, ClientWorker worker) throws JSONException{
