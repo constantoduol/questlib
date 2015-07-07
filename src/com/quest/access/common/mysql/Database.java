@@ -12,7 +12,9 @@ import java.net.SocketException;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.StringTokenizer;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpSession;
@@ -81,7 +83,19 @@ public class Database {
     }
     
     public Connection getConnection(){
-       return ConnectionPool.getConnectionPool().get(this.session.getId()).get(this.name);
+       return ConnectionPool.getConnectionPool().get(this.name);
+    }
+    
+    private void closeConn(String dbName){
+        try {
+            Connection conn = ConnectionPool.getConnectionPool().get(dbName); 
+            if (conn != null) {
+                conn.close();
+                ConnectionPool.getConnectionPool().remove(dbName); 
+            }
+        } catch (Exception e) {
+
+        }
     }
     
     /**
@@ -141,6 +155,7 @@ public class Database {
                 }
             }
             set.close();
+            //closeConn(name);
             return json;
         } catch (Exception ex) {
             return json;
@@ -172,6 +187,7 @@ public class Database {
                 }
             }
             set.close();
+            //closeConn(name);
             return json;
         } catch (SQLException ex) {
             java.util.logging.Logger.getLogger(Database.class.getName()).log(Level.SEVERE, null, ex);

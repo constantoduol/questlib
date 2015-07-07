@@ -51,8 +51,9 @@ import org.json.JSONTokener;
                 "POSTAL_ADDRESS TEXT",
                 "PHONE_NUMBER TEXT",
                 "COMPANY_WEBSITE TEXT",
-                "BUSINESS_TYPE VARCHAR(10)",//schema
+                "BUSINESS_TYPE VARCHAR(10)",
                 "BUSINESS_OWNER TEXT",
+                "BUSINESS_EXTRA_DATA TEXT",
                 "CREATED DATETIME"
             }),
     @Model(
@@ -128,12 +129,13 @@ public class OpenDataService implements Serviceable {
         Database db = new Database(USER_DATA,worker.getSession());
         JSONObject request = worker.getRequestData();
         String email = request.optString("username");
-        JSONObject data = db.query("SELECT BUSINESS_ID,BUSINESS_NAME,BUSINESS_TYPE from BUSINESS_USERS, "
+        JSONObject data = db.query("SELECT BUSINESS_ID,BUSINESS_NAME,BUSINESS_TYPE,BUSINESS_EXTRA_DATA from BUSINESS_USERS, "
                 + "BUSINESS_DATA where BUSINESS_USERS.BUSINESS_ID = BUSINESS_DATA.ID AND BUSINESS_USERS.USER_NAME = ?",email);
         JSONObject response = new JSONObject();
         response.put("business_ids", data.optJSONArray("BUSINESS_ID"));
         response.put("business_names", data.optJSONArray("BUSINESS_NAME"));
         response.put("business_types", data.optJSONArray("BUSINESS_TYPE"));
+        response.put("business_extra_data",data.optJSONArray("BUSINESS_EXTRA_DATA"));
         worker.setResponseData(response);
         serv.messageToClient(worker);
         return response;
@@ -166,20 +168,21 @@ public class OpenDataService implements Serviceable {
         String owner = request.optString("business_owner");
         String saveType = request.optString("action_type");
         String currentBusId = request.optString("business_id");
+        String bExtra = request.optString("business_extra_data");
         boolean exists = db.ifValueExists(new String[]{name,owner},"BUSINESS_DATA",new String[]{"BUSINESS_NAME","BUSINESS_OWNER"});
         //if this business exists under this owner do not create a new one, just update it
         if(saveType.equals("update")){
             Database.executeQuery("UPDATE BUSINESS_DATA SET BUSINESS_NAME=?, "
                     + "COUNTRY=?, CITY=?, POSTAL_ADDRESS=?, "
                     + "PHONE_NUMBER=?, COMPANY_WEBSITE=?, "
-                    + "BUSINESS_TYPE=? WHERE ID = ? ", db,
+                    + "BUSINESS_TYPE=?, BUSINESS_EXTRA_DATA = ?  WHERE ID = ? ", db,
                     name, country, city,
-                    pAddress, pNumber, web, type,currentBusId);
+                    pAddress, pNumber, web, type,bExtra,currentBusId);
         }
         else if(saveType.equals("create") && !exists){ 
             UniqueRandom rand = new UniqueRandom(20);
             String busId = rand.nextMixedRandom();
-            db.doInsert("BUSINESS_DATA", new String[]{busId, name, country, city, pAddress, pNumber, web, type,owner, "!NOW()"});
+            db.doInsert("BUSINESS_DATA", new String[]{busId, name, country, city, pAddress, pNumber, web, type,owner,bExtra, "!NOW()"});
             db.doInsert("BUSINESS_USERS",new String[]{rand.nextMixedRandom(),owner,busId,"!NOW()"});
         }
         else if(saveType.equals("delete")){

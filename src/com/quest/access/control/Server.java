@@ -39,6 +39,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -610,10 +611,111 @@ public class Server {
                     Database theDb = new Database(dbName,null);
                     String[] columns = model.columns();
                     String sql = Arrays.toString(columns).replace("[", " ").replace("]", " ");
-                    theDb.execute("CREATE TABLE IF NOT EXISTS " + tableName + " (" + sql + ")");
+                    theDb.execute("CREATE TABLE IF NOT EXISTS " + tableName + " (" + sql + ")"); 
+                    JSONObject colData = theDb.query("SHOW COLUMNS FROM "+tableName+""); //these are the columns we have on the database
+                    //compare them with what we have on the model,model values ["TRAN_FLAG TEXT","NARRATION TEXT"]
+                    //here we want to compare the columns in the database and what is specified
+                    //in the models, if we detect any changes in the column structure we alter
+                    //the table to accommodate the structure change
+                    //SHOW COLUMNS FROM table
+                    resolveColumnChanges(theDb, tableName, colData, columns);
                 }
             }
         }
+    }
+    
+    
+    private void resolveColumnChanges(Database db,String table,JSONObject currentColData,String[] expectedColData){
+        //alter the table to change the data type of the column
+        //alter the table to insert the extra columns
+        List currentColNames = listToUpperCase(currentColData.optJSONArray("Field").toList());
+        List currentDataTypes = listToUpperCase(currentColData.optJSONArray("Type").toList());
+        ArrayList<String> alterRegister = new ArrayList();//keeps track of columns that have been altered
+        for(int x = 0; x < expectedColData.length; x++){
+            //separate the column and type
+            String colAndType = expectedColData[x];
+            String[] vals = colAndType.replaceAll("\\s+"," ").split(" ");
+            String expectColName = vals[0].toUpperCase();
+            String expectType = vals[1].toUpperCase();
+            //we check whether this value exists in current data
+            int currentIndex = currentColNames.indexOf(expectColName);
+            //if it exists, we just need to verify that the data type is the same
+            if(currentIndex > -1){
+               //this column currently exists so verify data type
+                String currentType = currentDataTypes.get(currentIndex).toString();
+                String currentCol = currentColNames.get(currentIndex).toString();
+                if(!currentType.equals(expectType) && !currentType.contains(expectType)){
+                    //this means that the datatype for this column has changed so change it
+                   db.execute("ALTER TABLE "+table+" MODIFY "+currentCol+" "+expectType+"");
+                }
+               //ALTER TABLE tablename MODIFY columnname INTEGER;
+            }
+            else {
+                //if it does not exist it means someone introduced a new column
+                //ALTER TABLE Employees CHANGE COLUMN empName empName VARCHAR(50) AFTER department;
+                //the strategy is to find the first column that exists before or after and use it as
+                //a reference for the column insert
+                //int expectedIndex = x; //this is where we hope the column to exist
+                //we use the after strategy
+               // boolean backwards = false;
+                if(x == 0){ //this means this is the first column and its new
+                   db.execute("ALTER TABLE " + table + " ADD " + expectColName + " " + expectType + " FIRST"); 
+                   alterRegister.add(expectColName);
+                }
+                else {
+                    for (int y = (x - 1); y >= 0; y--) { //backwards
+                        String prev = expectedColData[y];
+                        String[] prevVals = prev.replaceAll("\\s+", " ").split(" ");
+                        String prevColName = prevVals[0].toUpperCase();
+                        int prevIndex = currentColNames.indexOf(prevColName); //if prev index > -1 
+                        //incase this value is in current columns or we have already added it to the columns
+                        if ((prevIndex > -1 || alterRegister.contains(prevColName)) && prevIndex < x) {
+                            //this value is the first column directly before
+                            db.execute("ALTER TABLE " + table + " ADD " + expectColName + " " + expectType + " AFTER " + prevColName + "");
+                            alterRegister.add(expectColName);
+                           // backwards = true;
+                            break;
+                        }
+                    }
+                }
+//                if(!backwards){
+//                    //incase the backwards pass didnt succeed do a forwards pass
+//                    for (int y = (x + 1); y >= x; y++) { //backwards
+//                        String next = expectedColData[y];
+//                        String[] nextVals = next.replaceAll("\\s+", " ").split(" ");
+//                        String prevColName = nextVals[0].toUpperCase();
+//                        int nextIndex = currentColNames.indexOf(prevColName); //if prev index > -1 
+//                        if ((nextIndex > -1 || alterRegister.contains(prevColName)) && nextIndex > x) {
+//                            //this value is the first column directly after
+//                            io.out("ALTER TABLE "+table+" ADD "+expectColName+" "+expectType+" BEFORE "+prevColName+"");
+//                            db.execute("ALTER TABLE "+table+" ADD "+expectColName+" "+expectType+" BEFORE "+prevColName+"");
+//                            alterRegister.add(expectColName);
+//                            break;
+//                        }
+//                    }
+//                }
+
+            }
+        }
+        //do the column alterations first
+        //["TRAN_FLAG TEXT","NARRATION TEXT"]
+        //["TRAN_FLAG TEXT","TRAN_TYPE TINYINT","NARRATION TEXT"]
+    }
+    
+    private List listToUpperCase(List<String> list) {
+        ArrayList newList = new ArrayList();
+        for (String list1 : list) {
+            String str = list1.toUpperCase();
+            newList.add(str);
+        }
+        return newList;
+    }
+    
+    public static void main(String [] args){
+       int x = 2;
+       for(int y = x ; y >= 0; y--){
+           io.out(y);
+       }
     }
 
     public void startService(String serviceLocation) {
@@ -922,13 +1024,6 @@ public class Server {
         return sessions;
     }
     
-    public void doTouchLogin(ClientWorker worker){
-        Database db = worker.getDatabase();
-        JSONObject requestData = worker.getRequestData();
-        String uPin = requestData.optString("password");
-        
-        
-    }
 
     /**
      * this method logs in a user
@@ -973,7 +1068,6 @@ public class Server {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
             worker.setResponseData("notexist");
             messageToClient(worker);
         }
@@ -1125,7 +1219,6 @@ public class Server {
                 object.put("data", worker.getResponseData());
                 object.put("reason", worker.getReason());
                 worker.toClient(object);
-                closeConnection(worker);
             } else if (rootWorkerId == null) {
                 //do nothing because we shouldnt propagate
             } else {
@@ -1147,7 +1240,6 @@ public class Server {
                 if (complete && worker.getPropagateResponse()) {
                     worker.toClient(data); //propagate response because we have been asked to do it
                     rootWorkers.remove(rootWorkerId);
-                    closeConnection(worker);
                 } else if (complete && !worker.getPropagateResponse()) {
                     rootWorkers.remove(rootWorkerId);
                 }
@@ -1168,7 +1260,6 @@ public class Server {
                 object.put("type", "exception");
                 object.put("ex_reason", obj.getMessage());
                 worker.toClient(object);
-                closeConnection(worker);
             } else if (rootWorkerId == null) {
                 //do nothing  
             } else {
@@ -1192,7 +1283,6 @@ public class Server {
                 if (complete && worker.getPropagateResponse()) {
                     worker.toClient(data);
                     rootWorkers.remove(rootWorkerId);
-                    closeConnection(worker);
                 } else if (complete && !worker.getPropagateResponse()) {
                     rootWorkers.remove(rootWorkerId);
                 }
@@ -1202,26 +1292,6 @@ public class Server {
         }
     }
     
-    private void closeConn(String sessionId){
-        ConcurrentHashMap<String,Connection> conns = ConnectionPool.getConnectionPool().get(sessionId); //
-        if (conns != null) {
-            try {
-                Iterator<Connection> iter = conns.values().iterator();
-                while(iter.hasNext()){
-                   Connection conn = iter.next();
-                   conn.close();
-                }
-                ConnectionPool.getConnectionPool().remove(sessionId);
-            } catch (SQLException ex) {
-                java.util.logging.Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }  
-    }
-    
-    private void closeConnection(ClientWorker worker){
-       closeConn(worker.getSession().getId());
-       closeConn("anonymous");
-    }
 
     /**
      * this method logs out a user using the user's session

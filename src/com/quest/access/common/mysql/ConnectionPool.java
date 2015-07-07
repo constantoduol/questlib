@@ -20,29 +20,15 @@ public class ConnectionPool {
     
     //use the session id to store the connection object
     //disconnect the connection when the client returns
-    private static final ConcurrentHashMap<String, ConcurrentHashMap<String,Connection>> connections = new ConcurrentHashMap();
+    private static final ConcurrentHashMap<String,Connection> connections = new ConcurrentHashMap();
 
-    public static Connection getConnection(Database db, String userName, String host, String pass) {
-        String id;
-        if(db.getUserSession() == null){
-           //no session specified
-           //use an anonymous id
-            id = "anonymous";
-        }
-        else {
-            id = db.getUserSession().getId(); 
-        }
-        boolean connectionExists = false;
-        if(connections.containsKey(id)){
-            connectionExists = connections.get(id).containsKey(db.getDatabaseName());
-        }
-        
-        if (connectionExists && !id.equals("anonymous")) { //recycle only known connections
+    public static Connection getConnection(Database db, String userName, String host, String pass) {   
+        if (connections.containsKey(db.getDatabaseName())) { //recycle only known connections
             try {
-                Connection conn = connections.get(id).get(db.getDatabaseName());
+                Connection conn = connections.get(db.getDatabaseName());
                 if (conn.isClosed()) {
                     conn = createConnection(db.getDatabaseName(), host, userName, pass);
-                    connections.get(id).put(db.getDatabaseName(),conn);
+                    connections.put(db.getDatabaseName(),conn);
                     return conn;
                 }
                 return conn;
@@ -51,10 +37,8 @@ public class ConnectionPool {
                 return null;
             }
         } else {
-            Connection conn = createConnection(db.getDatabaseName(), host, userName, pass);
-            ConcurrentHashMap<String, Connection> cons = new ConcurrentHashMap<>();
-            cons.put(db.getDatabaseName(), conn);
-            connections.put(id, cons);
+            Connection conn = createConnection(db.getDatabaseName(), host, userName, pass); //these are anon 
+            connections.put(db.getDatabaseName(), conn);
             return conn;
         }
     }
@@ -70,7 +54,7 @@ public class ConnectionPool {
         }
     }
     
-    public static ConcurrentHashMap<String, ConcurrentHashMap<String,Connection>> getConnectionPool(){
+    public static ConcurrentHashMap<String,Connection> getConnectionPool(){
        return connections;
     }
 
