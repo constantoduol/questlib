@@ -237,7 +237,6 @@ public class OpenDataService implements Serviceable {
         User user = us.createUser(serv, worker);
         String email = details.optString("name");
         String busId = details.optString("business_id");
-        io.out(details.optString("privs"));
         if(user != null){
            String id = new UniqueRandom(20).nextMixedRandom();
            db.doInsert("BUSINESS_USERS",new String[]{id,email,busId,"!NOW()"});  
@@ -358,7 +357,8 @@ public class OpenDataService implements Serviceable {
     @Endpoint(name="login")
     public void login(Server serv,ClientWorker worker) throws JSONException, UnknownHostException{
         JSONObject requestData = worker.getRequestData();
-        requestData.put("clientip", InetAddress.getLocalHost().getHostAddress());
+        String remoteAddr = worker.getRequest().getRemoteAddr();
+        requestData.put("clientip",remoteAddr);
         serv.doLogin(worker);
     }
     

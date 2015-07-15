@@ -5,13 +5,11 @@
 package com.quest.servlets;
 
 import com.quest.access.common.UniqueRandom;
-import com.quest.access.common.io;
 import com.quest.access.common.mysql.Database;
 import com.quest.access.control.Server;
 import com.quest.access.useraccess.NonExistentUserException;
 import com.quest.access.useraccess.User;
 import java.io.PrintWriter;
-import java.net.InetAddress;
 import java.util.Date;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -19,7 +17,6 @@ import java.util.logging.Logger;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
@@ -77,6 +74,8 @@ public class ClientWorker {
         try {
             server.invokeMultipleServices(this);
         } catch (Exception e) {
+            this.setResponseData(e);
+            this.setReason(e.getMessage());
             server.exceptionToClient(this);
         }
     }
@@ -205,7 +204,6 @@ public class ClientWorker {
             PrintWriter writer = response.getWriter();
             writer.println(toClient);
         } catch (Exception ex) {
-            ex.printStackTrace();
             System.out.println(ex);
         }
     }
