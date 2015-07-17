@@ -90,7 +90,7 @@ public class OpenDataService implements Serviceable {
     
     @Endpoint(name = "fetch_settings")
     public void fetchSettings(Server serv, ClientWorker worker) {
-        Database db = new Database(USER_DATA, worker.getSession());
+        Database db = new Database(USER_DATA);
         JSONObject data = db.query("SELECT * FROM CONF_DATA");
         worker.setResponseData(data);
         serv.messageToClient(worker);
@@ -100,7 +100,7 @@ public class OpenDataService implements Serviceable {
     
     @Endpoint(name = "save_settings")
     public void saveSettings(Server serv, ClientWorker worker) {
-        Database db = new Database(USER_DATA, worker.getSession());
+        Database db = new Database(USER_DATA);
         JSONObject request = worker.getRequestData();
         request.remove("business_id");
         Iterator iter = request.keys();
@@ -126,7 +126,7 @@ public class OpenDataService implements Serviceable {
     @Endpoint(name="business_info")
     public JSONObject getBusinessInfo(Server serv, ClientWorker worker) throws JSONException{
       //we need to get the business id
-        Database db = new Database(USER_DATA,worker.getSession());
+        Database db = new Database(USER_DATA);
         JSONObject request = worker.getRequestData();
         String email = request.optString("username");
         JSONObject data = db.query("SELECT BUSINESS_ID,BUSINESS_NAME,BUSINESS_TYPE,BUSINESS_EXTRA_DATA from BUSINESS_USERS, "
@@ -145,7 +145,7 @@ public class OpenDataService implements Serviceable {
     @Endpoint(name = "business_data")
     public void businessData(Server serv, ClientWorker worker) throws JSONException {
         //we need to get the business id
-        Database db = new Database(USER_DATA,worker.getSession());
+        Database db = new Database(USER_DATA);
         JSONObject request = worker.getRequestData();
         String id = request.optString("business_id");
         JSONObject data = db.query("SELECT * FROM BUSINESS_DATA WHERE ID = ? ORDER BY BUSINESS_NAME ASC",id);
@@ -156,7 +156,7 @@ public class OpenDataService implements Serviceable {
     
     @Endpoint(name = "save_business")
     public void saveBusiness(Server serv, ClientWorker worker) {
-        Database db = new Database(USER_DATA,worker.getSession());
+        Database db = new Database(USER_DATA);
         JSONObject request = worker.getRequestData();
         String name = request.optString("business_name");
         String country = request.optString("country");
@@ -224,7 +224,7 @@ public class OpenDataService implements Serviceable {
      
     private void createLocalAccount(Server serv, ClientWorker worker){
         //we manually need to check for privileges
-        Database db = new Database(USER_DATA,worker.getSession());
+        Database db = new Database(USER_DATA);
         if(!hasPrivilege("user_service", worker)){
             //no privilege found
             worker.setResponseData(Message.FAIL);
@@ -256,7 +256,7 @@ public class OpenDataService implements Serviceable {
     @Endpoint(name="forgot_password")
     public void forgotPassword(Server serv, ClientWorker worker) throws JSONException {
         try {
-            Database db = new Database(USER_DATA,worker.getSession());
+            Database db = new Database(USER_DATA);
             JSONObject details = worker.getRequestData();
             String email = details.optString("user_name");
             String bussName = details.optString("business_name");
@@ -300,7 +300,7 @@ public class OpenDataService implements Serviceable {
 
     @Endpoint(name="activate_account")
     public void activateAccount(Server serv, ClientWorker worker) throws IOException, NonExistentUserException {
-        Database db = new Database(USER_DATA,worker.getSession());
+        Database db = new Database(USER_DATA);
         JSONObject details = worker.getRequestData();
         String email = details.optString("user_name");
         String actionId = details.optString("action_id");

@@ -448,7 +448,7 @@ public class Server {
        StringTokenizer tk = new StringTokenizer(dbs,",");
        while(tk.hasMoreTokens()){
           String db = tk.nextToken().trim();
-          Database mysql = new Database("mysql",null);
+          Database mysql = new Database("mysql");
           mysql.execute("CREATE DATABASE IF NOT EXISTS "+db+"");
        }
     }
@@ -608,7 +608,7 @@ public class Server {
                 for (Model model : models) {
                     String tableName = model.table();
                     String dbName = model.database();
-                    Database theDb = new Database(dbName,null);
+                    Database theDb = new Database(dbName);
                     String[] columns = model.columns();
                     String sql = Arrays.toString(columns).replace("[", " ").replace("]", " ");
                     theDb.execute("CREATE TABLE IF NOT EXISTS " + tableName + " (" + sql + ")"); 

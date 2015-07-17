@@ -166,7 +166,7 @@ public class UserService implements Serviceable {
     public synchronized User createUser(Server serv, ClientWorker worker) {
         try {
             User user;
-            Database db = new Database(USER_DATA, worker.getSession());
+            Database db = new Database(USER_DATA);
             JSONObject details = worker.getRequestData();
             String uName = details.optString("name");
             UserAction uAction = new UserAction(worker, "CREATE_USER " + uName + "");
@@ -205,7 +205,7 @@ public class UserService implements Serviceable {
     @Endpoint(name = "delete_user")
     public void deleteUser(Server serv, ClientWorker worker) {
         try {
-            Database db = new Database(USER_DATA, worker.getSession());
+            Database db = new Database(USER_DATA);
             JSONObject requestData = worker.getRequestData();
             String uName = requestData.optString("name");
             HttpSession ses = worker.getSession();
@@ -229,7 +229,7 @@ public class UserService implements Serviceable {
 
     @Endpoint(name = "edit_host")
     public void editHost(Server serv, ClientWorker worker) {
-        Database db = new Database(USER_DATA, worker.getSession());
+        Database db = new Database(USER_DATA);
         JSONObject details = worker.getRequestData();
         String name = (String) details.optString("user_name");
         String host = (String) details.optString("host");
@@ -255,7 +255,7 @@ public class UserService implements Serviceable {
 
     @Endpoint(name = "edit_group")
     public void editGroup(Server serv, ClientWorker worker) {
-        Database db = new Database(USER_DATA, worker.getSession());
+        Database db = new Database(USER_DATA);
         JSONObject details = worker.getRequestData();
         String name = (String) details.optString("user_name");
         String group = (String) details.optString("group");
@@ -281,7 +281,7 @@ public class UserService implements Serviceable {
 
     @Endpoint(name = "edit_user")
     public synchronized void editUser(Server serv, ClientWorker worker) {
-        Database db = new Database(USER_DATA, worker.getSession());
+        Database db = new Database(USER_DATA);
         JSONObject details = worker.getRequestData();
         String name = details.optString("user_name");
         HttpSession ses = worker.getSession();
@@ -326,7 +326,7 @@ public class UserService implements Serviceable {
 
     @Endpoint(name = "reset_pass")
     public void resetPassword(Server serv, ClientWorker worker) {
-        Database db = new Database(USER_DATA, worker.getSession());
+        Database db = new Database(USER_DATA);
         JSONObject requestData = worker.getRequestData();
         String uName = requestData.optString("name");
         String interFace = requestData.optString("user_interface");
@@ -357,7 +357,7 @@ public class UserService implements Serviceable {
     @Endpoint(name = "disable_user")
     public void disableUser(Server serv, ClientWorker worker) {
         try {
-            Database db = new Database(USER_DATA, worker.getSession());
+            Database db = new Database(USER_DATA);
             JSONObject requestData = worker.getRequestData();
             String uName = requestData.optString("name");
             HttpSession ses = worker.getSession();
@@ -383,7 +383,7 @@ public class UserService implements Serviceable {
     @Endpoint(name = "enable_user")
     public void enableUser(Server serv, ClientWorker worker) {
         try {
-            Database db = new Database(USER_DATA, worker.getSession());
+            Database db = new Database(USER_DATA);
             JSONObject requestData = worker.getRequestData();
             String uName = requestData.optString("name");
             User user = User.getExistingUser(uName, db);
@@ -402,7 +402,7 @@ public class UserService implements Serviceable {
     public void grantPrivilege(Server serv, ClientWorker worker) {
         JSONObject details = worker.getRequestData();
         try {
-            Database db = new Database(USER_DATA, worker.getSession());
+            Database db = new Database(USER_DATA);
             String priv = details.optString("priv");
             String uName = details.optString("name");
             HttpSession ses = worker.getSession();
@@ -427,7 +427,7 @@ public class UserService implements Serviceable {
     public void revokePrivilege(Server serv, ClientWorker worker) {
         JSONObject details = worker.getRequestData();
         try {
-            Database db = new Database(USER_DATA, worker.getSession());
+            Database db = new Database(USER_DATA);
             String priv = details.optString("priv");
             String uName = details.optString("name");
             HttpSession ses = worker.getSession();
@@ -482,7 +482,7 @@ public class UserService implements Serviceable {
 
     @Endpoint(name = "view_user")
     public void getUserDetails(Server serv, ClientWorker worker) {
-        Database db = new Database(USER_DATA, worker.getSession());
+        Database db = new Database(USER_DATA);
         JSONObject requestData = worker.getRequestData();
         String userName = requestData.optString("name");
         JSONObject details = new JSONObject();
@@ -501,7 +501,7 @@ public class UserService implements Serviceable {
     @Endpoint(name = "all_users")
     public void allUsers(Server serv, ClientWorker worker) {
         try {
-            Database db = new Database(USER_DATA, worker.getSession());
+            Database db = new Database(USER_DATA);
             JSONObject data = db.query("SELECT USER_ID,USER_NAME,HOST,LAST_LOGIN,IS_LOGGED_IN,IS_DISABLED,IS_PASSWORD_EXPIRED,CREATED,GROUPS"
                     + " FROM USERS");
             JSONArray privs = new JSONArray();
@@ -524,7 +524,7 @@ public class UserService implements Serviceable {
 
     @Endpoint(name = "all_user_groups")
     public void getAllUserGroups(Server serv, ClientWorker worker) {
-        Database db = new Database(USER_DATA, worker.getSession());
+        Database db = new Database(USER_DATA);
         JSONObject set = db.query("SELECT DISTINCT GROUPS FROM USERS");
 
         worker.setResponseData(set);
@@ -534,7 +534,7 @@ public class UserService implements Serviceable {
 
     @Endpoint(name = "action_history")
     public void actionHistory(Server serv, ClientWorker worker) {
-        Database db = new Database(USER_DATA, worker.getSession());
+        Database db = new Database(USER_DATA);
         JSONObject details = worker.getRequestData();
         String name = details.optString("name");
         int limit = details.optInt("limit");
@@ -545,7 +545,7 @@ public class UserService implements Serviceable {
 
     @Endpoint(name = "login_history")
     public void loginHistory(Server serv, ClientWorker worker) {
-        Database db = new Database(USER_DATA, worker.getSession());
+        Database db = new Database(USER_DATA);
         JSONObject details = worker.getRequestData();
         String name = details.optString("name");
         int limit = details.optInt("limit");
@@ -582,7 +582,7 @@ public class UserService implements Serviceable {
 
     @Endpoint(name = "logout_history")
     public void logoutHistory(Server serv, ClientWorker worker) {
-        Database db = new Database(USER_DATA, worker.getSession());
+        Database db = new Database(USER_DATA);
         JSONObject details = worker.getRequestData();
         String name = details.optString("name");
         int limit = details.optInt("limit");

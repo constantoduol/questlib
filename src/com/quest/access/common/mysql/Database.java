@@ -59,9 +59,6 @@ public class Database {
      * the name of the database
      */
     private String name;
-    
-   
-    private HttpSession session;
 
     /**
      * this method constructs a database in the mysql server specified by the
@@ -72,15 +69,10 @@ public class Database {
      * @param session
      */
             
-    public Database(String name,HttpSession session) {
+    public Database(String name) {
         this.name = name;
-        this.session = session;
     }
     
-
-    public HttpSession getUserSession(){
-        return this.session;
-    }
     
     public Connection getConnection(){
        return ConnectionPool.getConnectionPool().get(this.name);

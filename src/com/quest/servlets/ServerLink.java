@@ -150,7 +150,7 @@ public class ServerLink extends HttpServlet {
          String rootUser = config.getInitParameter("root-user");
          String debug = config.getInitParameter("debug-mode");
          Database.setConfig(config);
-         Database db = new Database("user_server",null);
+         Database db = new Database("user_server");
          try {
             server = new Server(dbName);
             if(debug.equals("true")){

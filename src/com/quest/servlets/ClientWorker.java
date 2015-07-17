@@ -62,7 +62,7 @@ public class ClientWorker {
         this.id = randomGen.nextMixedRandom();
         this.propagateResponse = true; //this is true if we wish that this client worker always responds to the client
         this.request = request;
-        this.database = new Database("user_server", session);
+        this.database = new Database("user_server");
     }
 
     @Override
