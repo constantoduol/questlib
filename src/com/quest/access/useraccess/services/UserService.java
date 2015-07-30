@@ -99,13 +99,13 @@ import org.json.JSONObject;
  */
 @WebService(name = "user_service", level = 10, privileged = "yes")
 @Models(models = {
-   @Model(
-       database = "user_server", table = "PRIVILEGES", 
-       columns = {
-                  "USER_ID VARCHAR(20)",
-                  "GROUP_ID VARCHAR(256)"
-               }
-        ),
+    @Model(
+            database = "user_server", table = "PRIVILEGES",
+            columns = {
+                "USER_ID VARCHAR(20)",
+                "GROUP_ID VARCHAR(256)"
+            }
+    ),
     @Model(
             database = "user_server", table = "USERS",
             columns = {"USER_ID VARCHAR(25) PRIMARY KEY",
@@ -154,7 +154,6 @@ import org.json.JSONObject;
             }
     )
 
-        
 }
 )
 
@@ -163,43 +162,31 @@ public class UserService implements Serviceable {
     private static final String USER_DATA = "user_server";
 
     @Endpoint(name = "create_user")
-    public synchronized User createUser(Server serv, ClientWorker worker) {
+    public synchronized User createUser(Server serv, ClientWorker worker) throws UserExistsException {
+        Database db = new Database(USER_DATA);
+        JSONObject details = worker.getRequestData();
+        String uName = details.optString("name");
+        UserAction uAction = new UserAction(worker, "CREATE_USER " + uName + "");
+        String host = details.optString("host");
+        JSONArray priv = details.optJSONArray("privs");
+        String group = details.optString("group");
+        String password = details.optString("password");
+        String userInterface = details.optString("user_interface");
+        password = password.isEmpty() ? serv.getDefaultPassWord() : password;
+        String[] privs = new String[priv.length()];
         try {
-            User user;
-            Database db = new Database(USER_DATA);
-            JSONObject details = worker.getRequestData();
-            String uName = details.optString("name");
-            UserAction uAction = new UserAction(worker, "CREATE_USER " + uName + "");
-            String host = details.optString("host");
-            JSONArray priv = details.optJSONArray("privs");
-            String group = details.optString("group");
-            String password = details.optString("password");
-            String userInterface = details.optString("user_interface");
-            password = password.isEmpty() ? serv.getDefaultPassWord() : password;
-            String[] privs = new String[priv.length()];
-
             for (int x = 0; x < privs.length; x++) {
                 privs[x] = priv.get(x).toString().trim();
             }
+        } catch (Exception e) {
 
-            try {
-                user = new User(uName, password, host, db, group, uAction,userInterface, privs);
-            } catch (UserExistsException ex) {
-                worker.setReason(ex.getMessage());
-                worker.setResponseData(ex);
-                serv.exceptionToClient(worker);
-                return null;
-            }
-
-            //save the user apps
-            //user.setAccessibleApps(apps);
-            worker.setResponseData(Message.SUCCESS);
-            serv.messageToClient(worker);
-            return user;
-        } catch (Exception ex) {
-            java.util.logging.Logger.getLogger(UserService.class.getName()).log(Level.SEVERE, null, ex);
-            return null;
         }
+
+        User user = new User(uName, password, host, db, group, uAction, userInterface, privs);
+        worker.setResponseData(Message.SUCCESS);
+        serv.messageToClient(worker);
+        return user;
+
     }
 
     @Endpoint(name = "delete_user")
@@ -208,6 +195,7 @@ public class UserService implements Serviceable {
             Database db = new Database(USER_DATA);
             JSONObject requestData = worker.getRequestData();
             String uName = requestData.optString("name");
+            String busId = requestData.optString("business_id");
             HttpSession ses = worker.getSession();
             String name = (String) ses.getAttribute("username");
             if (uName.equals(serv.getRootUser()) || name.equals(uName)) {
@@ -217,6 +205,7 @@ public class UserService implements Serviceable {
                 return;
             }
             User.deleteUser(uName, db);
+            db.query("DELETE FROM BUSINESS_USERS WHERE USER_NAME = '" + uName + "' AND BUSINESS_ID='" + busId + "'");
             worker.setResponseData(Message.SUCCESS);
             serv.messageToClient(worker);
             UserAction action = new UserAction(worker, "DELETE_USER " + uName + "");
@@ -318,7 +307,6 @@ public class UserService implements Serviceable {
             UserAction action = new UserAction(worker, "EDIT_USER " + name + "");
             action.saveAction();
         } catch (Exception ex) {
-            ex.printStackTrace();
             worker.setResponseData(ex);
             serv.exceptionToClient(worker);
         }
@@ -521,7 +509,6 @@ public class UserService implements Serviceable {
         }
     }
 
-
     @Endpoint(name = "all_user_groups")
     public void getAllUserGroups(Server serv, ClientWorker worker) {
         Database db = new Database(USER_DATA);
@@ -591,10 +578,9 @@ public class UserService implements Serviceable {
         serv.messageToClient(worker);
     }
 
-    
     @Override
     public void onPreExecute(Server serv, ClientWorker worker) {
-        
+
     }
 
     @Override

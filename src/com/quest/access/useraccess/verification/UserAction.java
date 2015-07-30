@@ -43,10 +43,9 @@ public class UserAction implements Action {
      * action is not saved until the instance method saveAction is called
      * @param worker
      * @param description
-     * @throws java.lang.Exception
      */
 
-    public UserAction(ClientWorker worker, String description) throws Exception {
+    public UserAction(ClientWorker worker, String description)  {
         UniqueRandom ur = new UniqueRandom(50);
         actionID = ur.nextMixedRandom();
         this.database = worker.getDatabase();

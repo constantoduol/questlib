@@ -673,28 +673,10 @@ public class Server {
                             //this value is the first column directly before
                             db.execute("ALTER TABLE " + table + " ADD " + expectColName + " " + expectType + " AFTER " + prevColName + "");
                             alterRegister.add(expectColName);
-                           // backwards = true;
                             break;
                         }
                     }
                 }
-//                if(!backwards){
-//                    //incase the backwards pass didnt succeed do a forwards pass
-//                    for (int y = (x + 1); y >= x; y++) { //backwards
-//                        String next = expectedColData[y];
-//                        String[] nextVals = next.replaceAll("\\s+", " ").split(" ");
-//                        String prevColName = nextVals[0].toUpperCase();
-//                        int nextIndex = currentColNames.indexOf(prevColName); //if prev index > -1 
-//                        if ((nextIndex > -1 || alterRegister.contains(prevColName)) && nextIndex > x) {
-//                            //this value is the first column directly after
-//                            io.out("ALTER TABLE "+table+" ADD "+expectColName+" "+expectType+" BEFORE "+prevColName+"");
-//                            db.execute("ALTER TABLE "+table+" ADD "+expectColName+" "+expectType+" BEFORE "+prevColName+"");
-//                            alterRegister.add(expectColName);
-//                            break;
-//                        }
-//                    }
-//                }
-
             }
         }
         //do the column alterations first

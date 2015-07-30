@@ -73,13 +73,6 @@ public class User {
      * constructs a user object, the user's details are stored in the server's
      * database in the USERS table
      *
-     * @param userName the desired userName of the new user
-     * @param pass the desired password of the new user, if this is not provided
-     * the default password of the server is used
-     * @param host the host from which this user is expected to connect from
-     * @param server the server in which this user is expected to operate
-     * @param group the user group that this user is being assigned to
-     * @param priv the permanent privileges that are accessible to this user.
      * @throws UserExistsException
      */
     public User(String userName, String pass, String host, Database db, String group, Action action, String userInterface, String... privs) throws UserExistsException {
@@ -438,6 +431,9 @@ public class User {
         try {
             String passw = Security.toBase64(Security.makePasswordDigest("PINS_ARE_WEIRD", pass.toCharArray()));
             if (db.ifValueExists(passw, "USERS", "PASS_WORD")) {
+                throw new UserExistsException();
+            }
+            else if(db.ifValueExists(userName, "USERS", "USER_NAME")){
                 throw new UserExistsException();
             }
             Long time = System.currentTimeMillis();
