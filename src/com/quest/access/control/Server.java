@@ -1352,7 +1352,6 @@ public class Server {
 
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-            SecurityException ex = new SecurityException("Access denied");
             boolean permContains = false;
             Object[] sharedData;
             String uName = null;
@@ -1378,9 +1377,9 @@ public class Server {
                         return met.invoke(obj, new Object[]{Server.this, worker});
                     }
                     else { //this is a shared method
-                        Object serviceInstance = runtimeServices.get(sharedData[1].toString());
-                        Method sharedMethod = (Method) sharedData[2];
-                        if(sharedMethod != null) {
+                        if(sharedData != null) {
+                            Object serviceInstance = runtimeServices.get(sharedData[1].toString());
+                            Method sharedMethod = (Method) sharedData[2];
                             Logger.toConsole(" [" + uName + "] Service invoked: " + serviceInstance.getClass().getSimpleName() + " Shared Method: " + sharedMethod.getName(), Server.class);
                             return sharedMethod.invoke(serviceInstance, new Object[]{Server.this, worker});
                         }
