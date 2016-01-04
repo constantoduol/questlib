@@ -253,9 +253,9 @@ public class User {
             String old_pass = Security.toBase64(Security.makePasswordDigest("PINS_ARE_WEIRD", oldPass.toCharArray()));
             String pass_stored = db.getValue("PASS_WORD", "USERS", "USER_NAME", userName);
             if (old_pass.equals(pass_stored)) {
-                byte[] bytes = Security.makePasswordDigest(userName, newPass.toCharArray());
-                String passw = Security.toBase64(bytes);
+                String passw = Security.toBase64(Security.makePasswordDigest("PINS_ARE_WEIRD", newPass.toCharArray()));
                 long time = System.currentTimeMillis();
+                
                 db.query("UPDATE USERS SET PASS_WORD='" + passw + "',IS_PASSWORD_EXPIRED='" + time + "', CHANGE_PASSWORD = '0' WHERE USER_NAME=?", userName);
                 return true;
             } else {

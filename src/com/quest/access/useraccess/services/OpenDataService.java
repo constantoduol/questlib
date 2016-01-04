@@ -10,7 +10,6 @@ import com.quest.access.common.UniqueRandom;
 import com.quest.access.common.io;
 import com.quest.access.common.mysql.Database;
 import com.quest.access.control.Server;
-import com.quest.access.useraccess.NonExistentUserException;
 import com.quest.access.useraccess.Serviceable;
 import com.quest.access.useraccess.User;
 import com.quest.access.useraccess.UserExistsException;
@@ -18,12 +17,9 @@ import com.quest.access.useraccess.services.annotations.Endpoint;
 import com.quest.access.useraccess.services.annotations.Model;
 import com.quest.access.useraccess.services.annotations.Models;
 import com.quest.access.useraccess.services.annotations.WebService;
-import com.quest.access.useraccess.verification.UserAction;
 import com.quest.servlets.ClientWorker;
-import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
@@ -76,13 +72,22 @@ import org.json.JSONObject;
 }
 )
 public class OpenDataService implements Serviceable {
-
-    private static final String SERVER_ENDPOINT = "https://quest-uza.appspot.com/server";
-
-    private static final String NEXT_URL = "http://uza.questpico.com";
+    
+    private static JSONObject busSettings;
 
     private static final String USER_DATA = "user_server";
 
+    
+    public static String getSetting(String key) {
+        if (busSettings == null) {
+            return "_notexist_";
+        }
+        List keys = busSettings.optJSONArray("CONF_KEY").toList();
+        List values = busSettings.optJSONArray("CONF_VALUE").toList();
+        int index = keys.indexOf(key);
+        return index == -1 ? "_notexist_" : values.get(index).toString();
+    }
+    
     @Endpoint(name = "fetch_settings")
     public void fetchSettings(Server serv, ClientWorker worker) {
         Database db = new Database(USER_DATA);
@@ -112,6 +117,8 @@ public class OpenDataService implements Serviceable {
                 db.doInsert("CONF_DATA", new String[]{key, value});
             }
         }
+        
+        busSettings = db.query("SELECT * FROM CONF_DATA");
         worker.setResponseData(Message.SUCCESS);
         serv.messageToClient(worker);
     }
@@ -253,96 +260,11 @@ public class OpenDataService implements Serviceable {
         return newList;
     }
 
-    @Endpoint(name = "forgot_password")
-    public void forgotPassword(Server serv, ClientWorker worker) throws JSONException {
-        try {
-            Database db = new Database(USER_DATA);
-            JSONObject details = worker.getRequestData();
-            String email = details.optString("user_name");
-            String bussName = details.optString("business_name");
-            //check locally to see whether its valid
-            User user = User.getExistingUser(email, db);
-            worker.setPropagateResponse(false);
-            JSONObject buss = getBusinessInfo(serv, worker);
-            worker.setPropagateResponse(true);
-            io.out(buss);
-            if (!listToLowerCase(buss.optJSONArray("business_names").toList()).contains(bussName)) {
-                //no business here
-                worker.setResponseData(Message.FAIL);
-                worker.setReason("The specified business does not exist for specified email address");
-                serv.messageToClient(worker);
-                return;
-            }
-            String body = serv.getEmailTemplate("forgot-password");
-            String senderEmail = serv.getConfig().getInitParameter("sender-email");
-            String[] from = new String[]{senderEmail, "Quest Pico"};
-            String[] to = new String[]{email, email};
-            body = body.replace("{user_name}", email);
-            String pass = new UniqueRandom(6).nextMixedRandom();
-            user.setPassWord(pass);
-            user.setUserProperty("CHANGE_PASSWORD", "1", db);
-            body = body.replace("{pass_word}", pass);
-            body = body.replace("{change_link}", NEXT_URL + "/change.html?user_name=" + email + "&pass_word=" + pass);
-            serv.sendEmail(from, to, "Password Reset", body);
-            worker.setResponseData(Message.SUCCESS);
-            serv.messageToClient(worker);
-        } catch (NonExistentUserException ex) {
-            worker.setResponseData(Message.FAIL);
-            worker.setReason("The specified email address does not belong to any account");
-            serv.messageToClient(worker);
-        }
-    }
-
     @Endpoint(name = "create_account")
     public void createAccount(Server serv, ClientWorker worker) throws Exception {
         createLocalAccount(serv, worker);
     }
 
-    @Endpoint(name = "activate_account")
-    public void activateAccount(Server serv, ClientWorker worker) throws IOException, NonExistentUserException {
-        Database db = new Database(USER_DATA);
-        JSONObject details = worker.getRequestData();
-        String email = details.optString("user_name");
-        String actionId = details.optString("action_id");
-        String nextUrl = details.optString("next_url");
-        String busId = details.optString("business_id");
-        User user = User.getExistingUser(email, db);
-        //first check if the specified user is already activated
-        boolean userExists = !user.getUserProperty("USER_NAME").isEmpty();
-        if (!userExists) {
-            worker.setResponseData(Message.FAIL);
-            worker.setReason("User account seems to be invalid");
-            serv.messageToClient(worker);
-            return;
-        }
-
-        boolean userDisabled = user.getUserProperty("IS_DISABLED").equals("1");
-        if (!userDisabled) {
-            //if the user is not disabled, it means this account has already been activated
-            worker.setResponseData(Message.FAIL);
-            worker.setReason("User account has already been activated");
-            serv.messageToClient(worker);
-            return;
-        }
-        //here we are dealing with a disabled user
-        //check that the action id matches what we have
-        HashMap actionDetails = UserAction.getActionDetails(actionId, db);
-        String userName = actionDetails.get("ACTION_DESCRIPTION").toString();
-        //if userName === email then we are happy
-        if (userName.equals(email)) {
-            //well this is a valid activation,do something cool
-            //send a redirect to the next url
-            //add to specified business
-            //enable the user
-            user.setUserProperty("IS_DISABLED", "0", db);
-            String id = new UniqueRandom(20).nextMixedRandom();
-            if (!busId.isEmpty()) {
-                db.doInsert("BUSINESS_USERS", new String[]{id, email, busId, "!NOW()"});
-            }
-            worker.getResponse().sendRedirect(nextUrl);
-        }
-
-    }
 
     @Endpoint(name = "logout")
     public void logout(Server serv, ClientWorker worker) {
@@ -385,11 +307,13 @@ public class OpenDataService implements Serviceable {
     @Override
     public void onStart(Server serv) {
         try {
+            Database db = new Database("user_server");
+            busSettings = db.query("SELECT * FROM CONF_DATA");
             createNativeBusiness(serv);
+            loadInitSettings(serv);
         } catch (JSONException ex) {
             Logger.getLogger(OpenDataService.class.getName()).log(Level.SEVERE, null, ex);
         }
-
     }
 
     private void createNativeBusiness(Server serv) throws JSONException {
@@ -407,11 +331,34 @@ public class OpenDataService implements Serviceable {
         worker.setPropagateResponse(false);
         saveBusiness(serv, worker);
     }
+    
+     private void loadInitSettings(Server serv) throws JSONException {
+        io.out("user_interface : "+getSetting("user_interface"));
+        if(!getSetting("user_interface").equals("_notexist_")) return;
+            //settings have been initialized
+        io.out("settings initialized");
+        JSONObject request = new JSONObject();
+        request.put("enable_undo_sales", "1");
+        request.put("add_tax", "1");
+        request.put("add_comm", "1");
+        request.put("add_discounts", "1");
+        request.put("add_purchases", "0");
+        request.put("track_stock", "1");
+        request.put("user_interface", "desktop");
+        request.put("no_of_receipts", "1");
+        request.put("receipt_header", "");
+        request.put("allow_discounts", "0");
+        request.put("receipt_footer", "");
+        request.put("currency", "KES");
+        ClientWorker worker = new ClientWorker("save_settings", "open_data_service", request, null, null, null);
+        worker.setPropagateResponse(false);
+        saveSettings(serv, worker);
+    }
+     
 
     @Endpoint(name = "activate_product")
     public void activateProduct(Server serv, ClientWorker worker) {
         Activation ac = new Activation();
         ac.validateKey(serv, worker);
-
     }
 }

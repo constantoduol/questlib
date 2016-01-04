@@ -1354,14 +1354,13 @@ public class Server {
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
             boolean permContains = false;
             Object[] sharedData;
-            String uName = null;
+            String uName;
             String privState = Server.services.get(worker.getService()).get(2).toString();
                 if (privState.equals("yes")) {
                     HttpSession ses = worker.getSession();
                     uName = (String) ses.getAttribute("username");
                     JSONArray privileges = (JSONArray) ses.getAttribute("privileges");
-                    String rGroup = this.priv;
-                    permContains = privileges.toList().contains(rGroup); // this user has a permanent privilege 
+                    permContains = privileges != null && privileges.toList().contains(this.priv); 
 
                 } else {
                     uName = "anonymous";
