@@ -628,22 +628,25 @@ public class Server {
     private void resolveColumnChanges(Database db,String table,JSONObject currentColData,String[] expectedColData){
         //alter the table to change the data type of the column
         //alter the table to insert the extra columns
-        List currentColNames = listToUpperCase(currentColData.optJSONArray("Field").toList());
-        List currentDataTypes = listToUpperCase(currentColData.optJSONArray("Type").toList());
+        List<String> currentColNames = listToUpperCase(currentColData.optJSONArray("Field").toList());
+        List<String> currentDataTypes = listToUpperCase(currentColData.optJSONArray("Type").toList());
         ArrayList<String> alterRegister = new ArrayList();//keeps track of columns that have been altered
+        ArrayList<String> expectColNames = new ArrayList();
         for(int x = 0; x < expectedColData.length; x++){
             //separate the column and type
             String colAndType = expectedColData[x];
             String[] vals = colAndType.replaceAll("\\s+"," ").split(" ");
             String expectColName = vals[0].toUpperCase();
+            expectColNames.add(expectColName);
             String expectType = vals[1].toUpperCase();
             //we check whether this value exists in current data
             int currentIndex = currentColNames.indexOf(expectColName);
+            
             //if it exists, we just need to verify that the data type is the same
             if(currentIndex > -1){
                //this column currently exists so verify data type
-                String currentType = currentDataTypes.get(currentIndex).toString();
-                String currentCol = currentColNames.get(currentIndex).toString();
+                String currentType = currentDataTypes.get(currentIndex);
+                String currentCol = currentColNames.get(currentIndex);
                 if(!currentType.equals(expectType) && !currentType.contains(expectType)){
                     //this means that the datatype for this column has changed so change it
                    db.execute("ALTER TABLE "+table+" MODIFY "+currentCol+" "+expectType+"");
@@ -651,6 +654,7 @@ public class Server {
                //ALTER TABLE tablename MODIFY columnname INTEGER;
             }
             else {
+                
                 //if it does not exist it means someone introduced a new column
                 //ALTER TABLE Employees CHANGE COLUMN empName empName VARCHAR(50) AFTER department;
                 //the strategy is to find the first column that exists before or after and use it as
@@ -678,6 +682,20 @@ public class Server {
                     }
                 }
             }
+        }
+        //now we look for columns that have been deleted from our models
+        //and sync that to the database
+        for(int x = 0; x < currentColNames.size(); x++){
+            String currentColName = currentColNames.get(x);
+            //if the currentColName is not in the expected col names
+            //it means it has been deleted so remove it
+            int index = expectColNames.indexOf(currentColName);
+            if(index == -1){
+                //delete this column because it has been removed
+                //ALTER TABLE tablename DROP COLUMN columnname;
+                db.execute("ALTER TABLE " + table + " DROP COLUMN " +currentColName);
+            }
+            
         }
         //do the column alterations first
         //["TRAN_FLAG TEXT","NARRATION TEXT"]
