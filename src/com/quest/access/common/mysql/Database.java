@@ -5,19 +5,13 @@ package com.quest.access.common.mysql;
  * @author constant oduol
  * @version 1.0(4/1/2012)
  */
-import com.quest.access.common.Logger;
-import com.quest.access.common.io;
-import com.quest.access.control.Server;
-import java.net.SocketException;
 
+import com.quest.access.common.io;
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.StringTokenizer;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import javax.servlet.ServletConfig;
-import javax.servlet.http.HttpSession;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -179,7 +173,6 @@ public class Database {
                 }
             }
             set.close();
-            //closeConn(name);
             return json;
         } catch (SQLException ex) {
             java.util.logging.Logger.getLogger(Database.class.getName()).log(Level.SEVERE, null, ex);
@@ -330,17 +323,8 @@ public class Database {
      *
      */
     public static boolean ifValueExists(String value, String tableName, String columnName,Database db) {
-        ResultSet set = Database.executeQuery("SELECT " + columnName + " FROM " + tableName + " WHERE " + columnName + "='" + value + "' ", db);
-        try {
-            while (set.next()) {
-                return set.getString(columnName) != null ? true : false;
-            }
-            set.close();
-        } catch (SQLException e) {
-            return false;
-
-        }
-        return false;
+        JSONObject data = db.query("SELECT " + columnName + " FROM " + tableName + " WHERE " + columnName + "='" + value + "' ");
+        return data.optJSONArray(columnName).length() > 0;
     }
     
 
@@ -374,22 +358,15 @@ public class Database {
                     sql.append(columnNames[x]).append("=? AND ");
                 }
             }
-            ResultSet set = Database.executeQuery(sql.toString(), this, values);
-            while (set.next()) {
-                for (int x = 1; x < values.length + 1; x++) {
-                    if (set.getString(x) == null) {
-                        set.close();
-                        return false;
-                    } else if (set.getString(x) != null && x == values.length - 1) {
-                        set.close();
-                        return true;
-                    }
-                }
+            JSONObject data = this.query(sql.toString(), values);
+            if(data.optJSONArray(columnNames[0]).length() > 0){
+                return true;
             }
-            set.close();
-            return false;
-            //nothing in the result set so it does not exist;
+            else {
+                return false;
+            }
         } catch (Exception e) {
+            e.printStackTrace();
             return false;
         }
     }
@@ -413,18 +390,8 @@ public class Database {
      * condition or an empty string if no value is found
      */
     public static String getValue(String toFind, String table, String key, String keyValue, Database db) {
-        String val = "";
-        ResultSet rs = db.execute("SELECT " + toFind + " FROM " + table + " WHERE " + key + "='" + keyValue + "'");
-        try {
-            while (rs.next()) {
-                val = rs.getString("" + toFind + "");
-                return val;
-            }
-            rs.close();
-            return val;
-        } catch (SQLException e) {
-            return val;
-        }
+        String sql = "SELECT " + toFind + " FROM " + table + " WHERE " + key + "='" + keyValue + "'";
+        return db.query(sql).optJSONArray(toFind).optString(0);
     }
 
 
